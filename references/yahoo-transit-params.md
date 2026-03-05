@@ -1,13 +1,13 @@
 # Yahoo Transit Parameter Map
 
-Use this reference to convert natural language route constraints into a Yahoo! 乗換案内 URL, then fetch and extract route content.
+Use this reference to map canonical route fields into Yahoo! 乗換案内 query parameters.
 
 Base URL:
 `https://transit.yahoo.co.jp/search/result`
 
-## Required Query Parameters
+## Required Core Fields
 
-| Canonical Field | Query Key | Value Rule |
+| Canonical Field | Query Key | Rule |
 | --- | --- | --- |
 | `from` | `from` | Japanese departure station |
 | `to` | `to` | Japanese arrival station |
@@ -22,7 +22,7 @@ Base URL:
 
 ### Time Type (`type`)
 
-| Canonical Value | Query Value | Meaning |
+| Canonical | Query | Meaning |
 | --- | --- | --- |
 | `departure` | `1` | Depart at specified time |
 | `last_train` | `2` | Last train |
@@ -32,14 +32,14 @@ Base URL:
 
 ### Ticket (`ticket`)
 
-| Canonical Value | Query Value |
+| Canonical | Query |
 | --- | --- |
 | `ic` | `ic` |
 | `cash` | `normal` |
 
 ### Seat Preference (`expkind`)
 
-| Canonical Value | Query Value |
+| Canonical | Query |
 | --- | --- |
 | `non_reserved` | `1` |
 | `reserved` | `2` |
@@ -47,7 +47,7 @@ Base URL:
 
 ### Walk Speed (`ws`)
 
-| Canonical Value | Query Value |
+| Canonical | Query |
 | --- | --- |
 | `fast` | `1` |
 | `slightly_fast` | `2` |
@@ -56,7 +56,7 @@ Base URL:
 
 ### Sort (`s`)
 
-| Canonical Value | Query Value |
+| Canonical | Query |
 | --- | --- |
 | `time` | `0` |
 | `fare` | `1` |
@@ -77,11 +77,25 @@ Base URL:
 
 - Use repeated `via` parameters.
 - Keep at most 3 via stations.
-- Example: `...&via=表参道&via=飯田橋`
+- Ignore additional stations after the third one.
+- Example: `...&via=表参道&via=飯田橋&via=秋葉原`
 
-## Station Name Normalization Examples
+## Defaults
 
-| Input | Use in Query |
+If not provided explicitly:
+
+- `timeType=departure`
+- `ticket=ic`
+- `seatPreference=non_reserved`
+- `walkSpeed=slightly_slow`
+- `sortBy=time`
+- transport toggles all `true`
+
+## Station Normalization Notes
+
+Use Japanese station names for query parameters. A few common conversions:
+
+| Input | Query Value |
 | --- | --- |
 | Tokyo | 東京 |
 | Shinjuku | 新宿 |
@@ -92,9 +106,20 @@ Base URL:
 | 涩谷 / 澀谷 | 渋谷 |
 | 横滨 / 橫濱 | 横浜 |
 
-## Fetch and Extraction Commands
+When user-provided names can match multiple stations, ask one clarification question before querying.
 
-Fetch using canonical fields:
+## Command Examples
+
+Build URL only:
+
+```bash
+python3 scripts/build_norikae_url.py \
+  --from 東京 --to 新宿 --via 表参道 \
+  --year 2026 --month 3 --day 6 --hour 10 --minute 30 \
+  --time-type departure --sort-by time
+```
+
+Fetch and extract plain text:
 
 ```bash
 python3 scripts/fetch_norikae_routes.py \
@@ -103,13 +128,13 @@ python3 scripts/fetch_norikae_routes.py \
   --time-type departure --sort-by time --show-url
 ```
 
-Fetch from an existing URL:
+Fetch from existing URL:
 
 ```bash
 python3 scripts/fetch_norikae_routes.py --url 'https://transit.yahoo.co.jp/search/result?...' --show-url
 ```
 
-Return HTML snippet instead of plain text:
+Return HTML snippet:
 
 ```bash
 python3 scripts/fetch_norikae_routes.py --url '<url>' --format html
@@ -117,6 +142,6 @@ python3 scripts/fetch_norikae_routes.py --url '<url>' --format html
 
 ## Extraction Strategy
 
-- Remove noisy elements (`script`, `style`, comments, nav/header/footer/aside).
-- Prefer the HTML section starting at `class="...routeDetail..."` and ending before `条件を変更して検索`.
-- Fallback to plain text extraction and same boundary markers.
+- Remove noisy tags (`script`, `style`, comments, nav/header/footer/aside).
+- Prefer range from `class="...routeDetail..."` to `条件を変更して検索`.
+- Fall back to text extraction when structural markers are missing.
