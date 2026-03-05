@@ -1,0 +1,4 @@
+interface:
+  display_name: "Norikae Guide"
+  short_description: "Use and scrape Yahoo 乗換案内"
+  default_prompt: "Convert travel intent to Yahoo 乗換案内 parameters, fetch the result page, and extract route content."
